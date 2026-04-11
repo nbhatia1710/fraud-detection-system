@@ -314,7 +314,7 @@
 
 </div>
 <script>
-  const API = 'http://localhost:5000';
+const API = 'https://fraud-detection-api-ng8a.onrender.com';
   let cardNumber = '';
 
   async function checkAPIHealth() {
@@ -328,8 +328,7 @@
     const el  = document.getElementById('apiStatus');
     const txt = document.getElementById('apiStatusText');
     el.className    = 'api-status ' + (online ? 'online' : 'offline');
-    txt.textContent = online ? 'API connected · localhost:5000' : 'API offline · start Flask server';
-  }
+    txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend deployment'; }
 
   checkAPIHealth();
 
