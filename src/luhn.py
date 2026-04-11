@@ -1,5 +1,4 @@
 def luhn_check(card_number):
-    # Convert to string and check if numeric
     if not str(card_number).isdigit():
         return False
 
