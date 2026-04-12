@@ -9,169 +9,94 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #f7f7f5;
-      --surface: #ffffff;
-      --border: #e4e4e0;
-      --border-strong: #c8c8c2;
-      --text-primary: #111110;
-      --text-secondary: #6b6b67;
-      --text-tertiary: #9f9f9b;
-      --green: #15803d;
-      --green-bg: #f0fdf4;
-      --green-border: #bbf7d0;
-      --red: #dc2626;
-      --red-bg: #fef2f2;
-      --red-border: #fecaca;
-      --font: 'DM Sans', sans-serif;
-      --mono: 'DM Mono', monospace;
-      --radius: 14px;
-      --radius-sm: 8px;
-      --radius-xs: 6px;
+      --bg: #f7f7f5; --surface: #ffffff; --border: #e4e4e0; --border-strong: #c8c8c2;
+      --text-primary: #111110; --text-secondary: #6b6b67; --text-tertiary: #9f9f9b;
+      --green: #15803d; --green-bg: #f0fdf4; --green-border: #bbf7d0;
+      --red: #dc2626; --red-bg: #fef2f2; --red-border: #fecaca;
+      --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+      --radius: 14px; --radius-sm: 8px; --radius-xs: 6px;
     }
-
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 2rem 1rem 4rem;
-    }
-
+    body { font-family: var(--font); background: var(--bg); color: var(--text-primary); min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem 4rem; }
     .shell { width: 100%; max-width: 500px; }
-
     .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 2.5rem; }
     .brand-icon { width: 38px; height: 38px; background: var(--text-primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .brand-icon svg { width: 20px; height: 20px; }
     .brand-name { font-size: 15px; font-weight: 500; letter-spacing: -0.015em; }
     .brand-sub  { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
-
     .steps-wrap { display: grid; grid-template-columns: 28px 1fr 28px 1fr 28px; align-items: center; margin-bottom: 4px; }
-
-    .step-dot {
-      width: 28px; height: 28px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 500; font-family: var(--mono);
-      border: 1px solid var(--border-strong); background: var(--surface);
-      color: var(--text-secondary); transition: all 0.25s ease;
-    }
+    .step-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; font-family: var(--mono); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-secondary); transition: all 0.25s ease; }
     .step-dot.active { background: var(--text-primary); color: #fff; border-color: var(--text-primary); }
     .step-dot.done   { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
-
     .step-line { height: 1px; background: var(--border); transition: background 0.3s; }
     .step-line.done { background: var(--green-border); }
-
     .labels-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; margin-bottom: 1.75rem; }
     .step-label { font-size: 11px; color: var(--text-tertiary); margin-top: 5px; }
-
-    .card-panel {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.75rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.07); animation: fadeUp 0.3s ease;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
+    .card-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .panel-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 4px; }
     .panel-title { font-size: 20px; font-weight: 500; letter-spacing: -0.025em; margin-bottom: 4px; }
     .panel-desc  { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 1.5rem; }
     .field-wrap  { margin-bottom: 1.25rem; }
     .field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
     .field-hint  { font-size: 11px; color: var(--text-tertiary); font-weight: 400; }
-
     .card-input-wrap { position: relative; }
-    .card-input {
-      width: 100%; height: 44px; background: var(--bg);
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 0 80px 0 42px; font-family: var(--mono); font-size: 15px;
-      font-weight: 500; color: var(--text-primary); letter-spacing: 0.06em;
-      outline: none; transition: border-color 0.2s, background 0.2s;
-    }
+    .card-input { width: 100%; height: 44px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 80px 0 42px; font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--text-primary); letter-spacing: 0.06em; outline: none; transition: border-color 0.2s, background 0.2s; }
     .card-input:focus   { border-color: var(--border-strong); background: var(--surface); }
     .card-input.valid   { border-color: var(--green); background: var(--green-bg); }
     .card-input.invalid { border-color: var(--red); }
-
     .card-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--text-tertiary); pointer-events: none; }
-
     .card-type-badge { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 500; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0; transition: opacity 0.2s; }
     .card-type-badge.show       { opacity: 1; }
     .card-type-badge.visa       { background: #1A1F71; color: #fff; }
     .card-type-badge.mastercard { background: #EB001B; color: #fff; }
     .card-type-badge.amex       { background: #007BC1; color: #fff; }
-
     .validation-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 18px; font-size: 12px; }
     .v-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
     .v-ok  { color: var(--green); } .v-ok  .v-dot { background: var(--green); }
     .v-err { color: var(--red);   } .v-err .v-dot { background: var(--red);   }
     .v-idle{ color: var(--text-tertiary); } .v-idle .v-dot { background: var(--border-strong); }
-
     .amount-wrap { position: relative; }
     .currency-prefix { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 500; color: var(--text-secondary); font-family: var(--mono); pointer-events: none; }
-    .amount-input {
-      width: 100%; height: 44px; background: var(--bg);
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 0 12px 0 28px; font-family: var(--mono); font-size: 15px;
-      font-weight: 500; color: var(--text-primary);
-      outline: none; transition: border-color 0.2s, background 0.2s;
-    }
+    .amount-input { width: 100%; height: 44px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 12px 0 28px; font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--text-primary); outline: none; transition: border-color 0.2s, background 0.2s; }
     .amount-input:focus { border-color: var(--border-strong); background: var(--surface); }
-
     .risk-preview { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-xs); font-size: 12px; background: var(--bg); border: 1px solid var(--border); }
     .risk-bar-track { flex: 1; height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
     .risk-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.4s ease, background 0.4s ease; background: var(--green); }
-
     .desc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
     .desc-input { width: 100%; height: 40px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 12px; font-family: var(--font); font-size: 13px; color: var(--text-primary); outline: none; transition: border-color 0.2s; }
     .desc-input:focus { border-color: var(--border-strong); }
     .desc-input::placeholder { color: var(--text-tertiary); }
-
     .btn-primary { width: 100%; height: 44px; background: var(--text-primary); color: #fff; border: none; border-radius: var(--radius-sm); font-family: var(--font); font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s, transform 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-primary:hover:not(:disabled)  { opacity: 0.82; }
     .btn-primary:active:not(:disabled) { transform: scale(0.985); }
     .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
-
     .btn-secondary { width: 100%; height: 40px; background: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; cursor: pointer; transition: all 0.2s; margin-top: 10px; }
     .btn-secondary:hover { background: var(--bg); border-color: var(--border-strong); }
-
     .masked-card { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; color: var(--text-tertiary); letter-spacing: 0.08em; padding: 9px 12px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.25rem; }
     .masked-chip { width: 12px; height: 8px; background: var(--text-tertiary); border-radius: 2px; opacity: 0.45; flex-shrink: 0; }
-
     .error-banner { display: none; align-items: center; gap: 8px; padding: 10px 12px; background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius-sm); font-size: 13px; color: var(--red); margin-bottom: 1rem; }
     .error-banner.show { display: flex; }
-
     .loading-dots { display: flex; gap: 4px; align-items: center; }
     .loading-dots span { width: 5px; height: 5px; border-radius: 50%; background: #fff; animation: ldBounce 1.2s ease-in-out infinite; }
     .loading-dots span:nth-child(2) { animation-delay: 0.18s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.36s; }
     @keyframes ldBounce { 0%,80%,100%{transform:scale(0.55);opacity:0.4} 40%{transform:scale(1);opacity:1} }
-
     .result-card { border-radius: var(--radius); padding: 1.5rem; border: 1px solid var(--border); animation: fadeUp 0.35s ease; margin-bottom: 1rem; }
     .result-card.safe  { border-color: var(--green-border); background: var(--green-bg); }
     .result-card.fraud { border-color: var(--red-border);   background: var(--red-bg);   }
-
     .result-icon-wrap { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
     .result-card.safe  .result-icon-wrap { background: var(--green); }
-    .result-card.fraud .result-icon-wrap { background: var(--red);   }
-
+    .result-card.fraud .result-icon-wrap { background: var(--red); }
     .result-title { font-size: 17px; font-weight: 500; letter-spacing: -0.015em; margin-bottom: 5px; }
     .result-card.safe  .result-title { color: var(--green); }
-    .result-card.fraud .result-title { color: var(--red);   }
-
+    .result-card.fraud .result-title { color: var(--red); }
     .result-desc { font-size: 13px; line-height: 1.65; margin-bottom: 1rem; }
     .result-card.safe  .result-desc { color: #166534; }
     .result-card.fraud .result-desc { color: #991b1b; }
-
     .result-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,0.07); }
     .meta-key { font-size: 11px; color: var(--text-tertiary); margin-bottom: 2px; }
     .meta-val { font-family: var(--mono); font-weight: 500; font-size: 13px; color: var(--text-primary); }
-
     .api-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-tertiary); margin-bottom: 1.5rem; }
     .api-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); transition: background 0.3s; }
     .api-status.online  { border-color: var(--green-border); color: var(--green); }
@@ -179,58 +104,31 @@
     .api-status.offline { border-color: var(--red-border); color: var(--red); }
     .api-status.offline .api-dot { background: var(--red); }
 
-    /* ── Camera scanner styles ── */
-    #cameraWrap {
-      display: none;
-      margin-top: 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      position: relative;
-      background: #000;
-    }
-    #cameraWrap.active { display: block; }
+    /* ── Scanner UI ── */
+    .scan-section { margin-top: 10px; }
+
+    /* Hidden file input — triggered programmatically */
+    #fileInput { display: none; }
+
+    /* Live camera section (desktop) */
+    #cameraSection { display: none; margin-top: 10px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); background: #000; }
     #video { width: 100%; display: block; max-height: 220px; object-fit: cover; }
-    #scanOverlay {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: none;
-    }
-    #scanFrame {
-      width: 82%; height: 60%; border: 2px solid rgba(255,255,255,0.7);
-      border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
-    }
-    #scanLine {
-      position: absolute; left: 9%; width: 82%; height: 2px;
-      background: linear-gradient(90deg, transparent, #4ade80, transparent);
-      animation: scanMove 2s ease-in-out infinite;
-      top: 20%;
-    }
-    @keyframes scanMove {
-      0%   { top: 20%; }
-      50%  { top: 68%; }
-      100% { top: 20%; }
-    }
+    .cam-overlay { position: relative; }
+    .cam-frame { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cam-frame-box { width: 80%; height: 55%; border: 2px solid rgba(255,255,255,0.75); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
+    .cam-line { position: absolute; left: 10%; width: 80%; height: 2px; background: linear-gradient(90deg,transparent,#4ade80,transparent); animation: scanLine 2s ease-in-out infinite; top: 22%; }
+    @keyframes scanLine { 0%,100%{top:22%} 50%{top:66%} }
     #canvas { display: none; }
-    #cameraToolbar {
-      display: flex; gap: 8px; padding: 8px;
-      background: rgba(0,0,0,0.6);
-    }
-    .cam-btn {
-      flex: 1; height: 36px; border: none; border-radius: 6px;
-      font-family: var(--font); font-size: 13px; font-weight: 500;
-      cursor: pointer; transition: opacity 0.2s;
-    }
-    .cam-btn:hover { opacity: 0.85; }
+    .cam-toolbar { display: flex; gap: 8px; padding: 8px; background: rgba(0,0,0,0.65); }
+    .cam-btn { flex: 1; height: 36px; border: none; border-radius: 6px; font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; }
     .cam-btn.capture { background: #fff; color: #111; }
-    .cam-btn.close   { background: rgba(255,255,255,0.15); color: #fff; }
-    #ocrStatus {
-      font-size: 12px; color: var(--text-tertiary);
-      margin-top: 6px; min-height: 16px; text-align: center;
-    }
-    #ocrStatus.processing { color: #d97706; }
-    #ocrStatus.success    { color: var(--green); }
-    #ocrStatus.fail       { color: var(--red); }
+    .cam-btn.close-cam { background: rgba(255,255,255,0.18); color: #fff; }
+
+    /* OCR status */
+    #ocrMsg { font-size: 12px; text-align: center; margin-top: 8px; min-height: 18px; color: var(--text-tertiary); }
+    #ocrMsg.ok   { color: var(--green); }
+    #ocrMsg.err  { color: var(--red); }
+    #ocrMsg.busy { color: #d97706; }
   </style>
 </head>
 <body>
@@ -273,11 +171,13 @@
   <div id="step1" class="card-panel">
     <div class="panel-label">Step 1 of 3</div>
     <div class="panel-title">Card Validation</div>
-    <div class="panel-desc">Enter your card number or scan with your camera. We run a Luhn algorithm check before proceeding.</div>
+    <div class="panel-desc">Enter your card number or scan it. We run a Luhn check before proceeding.</div>
+
     <div class="error-banner" id="err1">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
       <span id="err1Text">Could not validate card.</span>
     </div>
+
     <div class="field-wrap">
       <div class="field-label">Card Number <span class="field-hint">Visa · Mastercard · Amex</span></div>
       <div class="card-input-wrap">
@@ -292,29 +192,42 @@
         <div class="card-type-badge" id="cardTypeBadge"></div>
       </div>
 
-      <!-- Camera scanner -->
-      <button type="button" class="btn-secondary" id="scanBtn" onclick="startCamera()">
-        📷 Scan Card
-      </button>
+      <!-- ── Scanner section ── -->
+      <div class="scan-section">
+        <!-- 
+          MOBILE: input[type=file] with capture="environment" opens native camera directly.
+          DESKTOP: falls through to getUserMedia live camera.
+        -->
+        <input type="file" id="fileInput" accept="image/*" capture="environment">
 
-      <div id="cameraWrap">
-        <video id="video" autoplay playsinline muted></video>
-        <div id="scanOverlay">
-          <div id="scanFrame"></div>
-          <div id="scanLine"></div>
+        <button type="button" class="btn-secondary" id="scanBtn" onclick="handleScanClick()">
+          📷 Scan Card
+        </button>
+
+        <!-- Live camera (desktop only, shown when getUserMedia works) -->
+        <div id="cameraSection">
+          <div class="cam-overlay">
+            <video id="video" autoplay playsinline muted></video>
+            <div class="cam-frame">
+              <div class="cam-frame-box"></div>
+            </div>
+            <div class="cam-line"></div>
+          </div>
+          <canvas id="canvas"></canvas>
+          <div class="cam-toolbar">
+            <button class="cam-btn capture" onclick="captureFrame()">📸 Capture &amp; Read</button>
+            <button class="cam-btn close-cam" onclick="closeCamera()">✕ Close</button>
+          </div>
         </div>
-        <canvas id="canvas"></canvas>
-        <div id="cameraToolbar">
-          <button class="cam-btn capture" onclick="captureAndOCR()">📸 Capture &amp; Read</button>
-          <button class="cam-btn close"   onclick="stopCamera()">✕ Close</button>
-        </div>
+
+        <div id="ocrMsg"></div>
       </div>
-      <div id="ocrStatus"></div>
 
       <div class="validation-row v-idle" id="luhnStatus">
         <div class="v-dot"></div><span>Enter card number to validate</span>
       </div>
     </div>
+
     <button class="btn-primary" id="btn1" disabled onclick="validateCard()">
       Validate Card
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -387,168 +300,162 @@
   </div>
 
 </div>
+
 <script>
   const API = 'https://fraud-detection-api-ng8a.onrender.com';
   let cardNumber = '';
   let cameraStream = null;
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
-  /* ── API Health ── */
+  /* ── API health ── */
   async function checkAPIHealth() {
     try {
       const res = await fetch(`${API}/`, { signal: AbortSignal.timeout(4000) });
       setAPIStatus(res.ok);
     } catch { setAPIStatus(false); }
   }
-
   function setAPIStatus(online) {
-    const el  = document.getElementById('apiStatus');
+    const el = document.getElementById('apiStatus');
     const txt = document.getElementById('apiStatusText');
-    el.className    = 'api-status ' + (online ? 'online' : 'offline');
-    txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend deployment';
+    el.className = 'api-status ' + (online ? 'online' : 'offline');
+    txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend';
   }
-
   checkAPIHealth();
 
-  /* ── Camera Scanner ── */
-  async function startCamera() {
-    const wrap = document.getElementById('cameraWrap');
-    const video = document.getElementById('video');
-    const ocrStatus = document.getElementById('ocrStatus');
-    const scanBtn = document.getElementById('scanBtn');
-
-    // If already open, close it
-    if (wrap.classList.contains('active')) {
-      stopCamera();
-      return;
-    }
-
-    ocrStatus.textContent = '';
-    ocrStatus.className = '';
-
-    try {
-      // Prefer rear camera on mobile devices
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-
-      cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = cameraStream;
-
-      // Wait for video to be ready before showing
-      await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve;
-        video.onerror = reject;
-        setTimeout(reject, 5000); // timeout safety
-      });
-
-      await video.play();
-      wrap.classList.add('active');
-      scanBtn.textContent = '✕ Close Camera';
-
-    } catch (err) {
-      let msg = 'Camera access denied.';
-      if (err.name === 'NotFoundError')     msg = 'No camera found on this device.';
-      if (err.name === 'NotAllowedError')   msg = 'Camera permission denied. Please allow camera access.';
-      if (err.name === 'NotReadableError')  msg = 'Camera is in use by another app.';
-      if (err.name === 'OverconstrainedError') {
-        // Retry without facingMode constraint
-        try {
-          cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          video.srcObject = cameraStream;
-          await new Promise(r => { video.onloadedmetadata = r; });
-          await video.play();
-          wrap.classList.add('active');
-          scanBtn.textContent = '✕ Close Camera';
-          return;
-        } catch (e2) {
-          msg = 'Could not access camera.';
-        }
+  /* ────────────────────────────────────────
+     SCAN BUTTON — smart routing
+     Mobile  → triggers file input (native camera picker)
+     Desktop → tries getUserMedia live camera
+  ──────────────────────────────────────── */
+  function handleScanClick() {
+    if (isMobile) {
+      // On mobile, the file input with capture="environment" opens the camera directly
+      // No JS camera API needed — just trigger the input click
+      document.getElementById('fileInput').click();
+    } else {
+      // Desktop: toggle live camera
+      const section = document.getElementById('cameraSection');
+      if (section.style.display === 'block') {
+        closeCamera();
+      } else {
+        openLiveCamera();
       }
-      ocrStatus.textContent = msg;
-      ocrStatus.className   = 'fail';
     }
   }
 
-  function stopCamera() {
+  /* ── File input handler (used by mobile) ── */
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setOcrMsg('🔍 Reading card number…', 'busy');
+    runOCROnFile(file);
+    // Reset so same file can be picked again if needed
+    this.value = '';
+  });
+
+  async function runOCROnFile(file) {
+    try {
+      const result = await Tesseract.recognize(file, 'eng', {
+        tessedit_char_whitelist: '0123456789 ',
+        tessedit_pageseg_mode: '6'
+      });
+      injectOCRResult(result.data.text);
+    } catch (err) {
+      setOcrMsg('OCR failed — try again', 'err');
+    }
+  }
+
+  /* ── Desktop live camera ── */
+  async function openLiveCamera() {
+    const section = document.getElementById('cameraSection');
+    const video   = document.getElementById('video');
+    setOcrMsg('', '');
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+      });
+      video.srcObject = cameraStream;
+      await video.play();
+      section.style.display = 'block';
+      document.getElementById('scanBtn').textContent = '✕ Close Camera';
+    } catch (err) {
+      // getUserMedia failed on desktop — fall back to file picker
+      setOcrMsg('Camera blocked — choose an image file instead', 'err');
+      // Remove capture attribute so it opens file browser (not camera) on desktop
+      const fi = document.getElementById('fileInput');
+      fi.removeAttribute('capture');
+      fi.click();
+    }
+  }
+
+  function closeCamera() {
     if (cameraStream) {
       cameraStream.getTracks().forEach(t => t.stop());
       cameraStream = null;
     }
     const video = document.getElementById('video');
     video.srcObject = null;
-    document.getElementById('cameraWrap').classList.remove('active');
+    document.getElementById('cameraSection').style.display = 'none';
     document.getElementById('scanBtn').textContent = '📷 Scan Card';
   }
 
-  async function captureAndOCR() {
+  async function captureFrame() {
     const video  = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const ocrStatus = document.getElementById('ocrStatus');
-
     if (!cameraStream || video.readyState < 2) {
-      ocrStatus.textContent = 'Camera not ready. Try again.';
-      ocrStatus.className   = 'fail';
+      setOcrMsg('Camera not ready — try again', 'err');
       return;
     }
-
-    // Draw current frame onto hidden canvas
     canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 360;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Pre-process: grayscale + contrast boost for better OCR
+    // Grayscale + contrast boost for OCR
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
-      const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-      const contrast = Math.min(255, Math.max(0, (gray - 128) * 1.8 + 128));
-      d[i] = d[i+1] = d[i+2] = contrast;
+      const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      const c = Math.min(255, Math.max(0, (g - 128) * 1.8 + 128));
+      d[i] = d[i+1] = d[i+2] = c;
     }
     ctx.putImageData(imgData, 0, 0);
 
-    ocrStatus.textContent = '🔍 Reading card number…';
-    ocrStatus.className   = 'processing';
-
+    setOcrMsg('🔍 Reading card number…', 'busy');
     try {
       const result = await Tesseract.recognize(canvas, 'eng', {
         tessedit_char_whitelist: '0123456789 ',
         tessedit_pageseg_mode: '6'
       });
-
-      const raw = result.data.text;
-
-      // Extract sequences of digits that look like card numbers (13–19 digits total)
-      const digitGroups = raw.replace(/\D+/g, ' ').trim().split(/\s+/).filter(Boolean);
-      const joined      = digitGroups.join('');
-
-      // Try to find a 13-19 digit sequence
-      const match = joined.match(/\d{13,19}/);
-
-      if (match) {
-        const digits    = match[0].slice(0, 16);
-        const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
-        const input     = document.getElementById('cardInput');
-        input.value     = formatted;
-        handleCardInput(input);
-        ocrStatus.textContent = '✓ Card number detected — confirm below';
-        ocrStatus.className   = 'success';
-        stopCamera();
-      } else {
-        ocrStatus.textContent = 'Could not find a card number. Try again with better lighting.';
-        ocrStatus.className   = 'fail';
-      }
-    } catch (err) {
-      ocrStatus.textContent = 'OCR failed: ' + (err.message || 'Unknown error');
-      ocrStatus.className   = 'fail';
+      injectOCRResult(result.data.text);
+    } catch {
+      setOcrMsg('OCR failed — try again', 'err');
     }
   }
 
-  /* ── Card Input & Luhn ── */
+  /* ── Parse OCR text and push into card input ── */
+  function injectOCRResult(text) {
+    const digits = text.replace(/\D+/g, '').slice(0, 16);
+    const match  = digits.match(/\d{13,16}/);
+    if (match) {
+      const formatted = match[0].replace(/(.{4})/g, '$1 ').trim();
+      const input = document.getElementById('cardInput');
+      input.value = formatted;
+      handleCardInput(input);
+      setOcrMsg('✓ Card detected — confirm below', 'ok');
+      closeCamera();
+    } else {
+      setOcrMsg('No card number found — try better lighting or enter manually', 'err');
+    }
+  }
+
+  function setOcrMsg(text, type) {
+    const el = document.getElementById('ocrMsg');
+    el.textContent = text;
+    el.className = type;
+  }
+
+  /* ── Card input & Luhn ── */
   function handleCardInput(el) {
     const raw = el.value.replace(/\D/g,'').slice(0,16);
     el.value  = raw.replace(/(.{4})/g,'$1 ').trim();
@@ -598,7 +505,7 @@
 
   /* ── Step 1: Validate ── */
   async function validateCard() {
-    const btn       = document.getElementById('btn1');
+    const btn = document.getElementById('btn1');
     const errBanner = document.getElementById('err1');
     errBanner.className = 'error-banner';
     btn.disabled = true;
@@ -614,7 +521,7 @@
       const data = await res.json();
       if (data.valid) {
         document.getElementById('maskedDisplay').textContent = maskCard(cardNumber);
-        stopCamera();
+        closeCamera();
         setStep(2);
       } else {
         document.getElementById('err1Text').textContent = 'Card invalid according to server.';
@@ -629,22 +536,20 @@
     btn.innerHTML = 'Validate Card <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   }
 
-  /* ── Step 2: Transaction ── */
+  /* ── Step 2 ── */
   function setBtn2Loading() {
     const btn = document.getElementById('btn2');
     btn.disabled = true;
     btn.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
   }
-
   function resetBtn2() {
     const btn = document.getElementById('btn2');
     btn.disabled = false;
     btn.innerHTML = 'Analyze Transaction <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   }
-
   function updateRiskPreview() {
-    const val   = parseFloat(document.getElementById('amountInput').value) || 0;
-    const fill  = document.getElementById('riskFill');
+    const val = parseFloat(document.getElementById('amountInput').value) || 0;
+    const fill = document.getElementById('riskFill');
     const label = document.getElementById('riskLabel');
     let pct, color, text;
     if      (val === 0)  { pct = 0;  color = '#15803d'; text = '—'; }
@@ -655,15 +560,11 @@
     fill.style.width = pct + '%'; fill.style.background = color;
     label.textContent = text; label.style.color = color;
   }
-
   async function analyzeTransaction() {
-    const amt       = parseFloat(document.getElementById('amountInput').value);
+    const amt = parseFloat(document.getElementById('amountInput').value);
     const errBanner = document.getElementById('err2');
     errBanner.className = 'error-banner';
-    if (!amt || amt <= 0) {
-      document.getElementById('amountInput').style.borderColor = '#dc2626';
-      return;
-    }
+    if (!amt || amt <= 0) { document.getElementById('amountInput').style.borderColor = '#dc2626'; return; }
     setBtn2Loading();
     try {
       const res = await fetch(`${API}/predict`, {
@@ -684,7 +585,7 @@
     }
   }
 
-  /* ── Step 3: Result ── */
+  /* ── Step 3 ── */
   function showResult(data, amt) {
     setStep(3);
     const isFraud    = data.fraud;
@@ -700,19 +601,19 @@
     if (isFraud) {
       icon.innerHTML    = '<path d="M10 3L3 17h14L10 3z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/><path d="M10 8.5v4M10 14.5v.5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>';
       title.textContent = 'Fraudulent Transaction Detected';
-      desc.textContent  = 'This transaction has been flagged as potentially fraudulent by the ML model. Amount and behavioural patterns indicate suspicious activity.';
+      desc.textContent  = 'This transaction has been flagged as potentially fraudulent. Amount and behavioural patterns indicate suspicious activity.';
     } else {
       icon.innerHTML    = '<path d="M4 10l4 4 8-8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
       title.textContent = 'Transaction Appears Safe';
       desc.textContent  = 'No suspicious patterns detected. The ML model has cleared this transaction based on amount and behavioural analysis.';
     }
     meta.innerHTML = `
-      <div class="meta-item"><div class="meta-key">Amount</div><div class="meta-val">&#8377;${amt.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
-      <div class="meta-item"><div class="meta-key">Confidence</div><div class="meta-val">${confidence}%</div></div>
-      <div class="meta-item"><div class="meta-key">Merchant</div><div class="meta-val">${merchant.slice(0,18)}</div></div>
-      <div class="meta-item"><div class="meta-key">Location</div><div class="meta-val">${location.slice(0,18)}</div></div>
-      <div class="meta-item"><div class="meta-key">Card</div><div class="meta-val">${maskCard(cardNumber)}</div></div>
-      <div class="meta-item"><div class="meta-key">Checked at</div><div class="meta-val">${new Date().toLocaleTimeString()}</div></div>
+      <div><div class="meta-key">Amount</div><div class="meta-val">&#8377;${amt.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+      <div><div class="meta-key">Confidence</div><div class="meta-val">${confidence}%</div></div>
+      <div><div class="meta-key">Merchant</div><div class="meta-val">${merchant.slice(0,18)}</div></div>
+      <div><div class="meta-key">Location</div><div class="meta-val">${location.slice(0,18)}</div></div>
+      <div><div class="meta-key">Card</div><div class="meta-val">${maskCard(cardNumber)}</div></div>
+      <div><div class="meta-key">Checked at</div><div class="meta-val">${new Date().toLocaleTimeString()}</div></div>
     `;
   }
 
@@ -724,7 +625,7 @@
   }
 
   function resetAll() {
-    stopCamera();
+    closeCamera();
     cardNumber = '';
     document.getElementById('cardInput').value         = '';
     document.getElementById('cardInput').className     = 'card-input';
@@ -741,9 +642,8 @@
     document.getElementById('riskLabel').style.color   = '';
     document.getElementById('err1').className          = 'error-banner';
     document.getElementById('err2').className          = 'error-banner';
-    document.getElementById('ocrStatus').textContent   = '';
-    document.getElementById('ocrStatus').className     = '';
     document.getElementById('scanBtn').textContent     = '📷 Scan Card';
+    setOcrMsg('', '');
     resetBtn2();
     setStep(1);
     checkAPIHealth();
