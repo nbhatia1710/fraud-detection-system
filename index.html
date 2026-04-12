@@ -6,6 +6,7 @@
   <title>SecureVerify — Fraud Detection</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -236,6 +237,9 @@
           maxlength="19" placeholder="0000  0000  0000  0000"
           autocomplete="cc-number" oninput="handleCardInput(this)"/>
         <div class="card-type-badge" id="cardTypeBadge"></div>
+        <button class="btn-secondary" onclick="startCamera()">Scan Card 📷</button>
+        <video id="video" style="display:none;width:100%;margin-top:10px;"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
       </div>
       <div class="validation-row v-idle" id="luhnStatus">
         <div class="v-dot"></div><span>Enter card number to validate</span>
