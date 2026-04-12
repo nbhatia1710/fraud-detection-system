@@ -237,10 +237,14 @@
           maxlength="19" placeholder="0000  0000  0000  0000"
           autocomplete="cc-number" oninput="handleCardInput(this)"/>
         <div class="card-type-badge" id="cardTypeBadge"></div>
-        <button class="btn-secondary" onclick="startCamera()">Scan Card 📷</button>
-        <video id="video" style="display:none;width:100%;margin-top:10px;"></video>
-        <canvas id="canvas" style="display:none;"></canvas>
       </div>
+      <button type="button" class="btn-secondary" onclick="startCamera(event)">
+        Scan Card 📷
+      </button>
+
+      <video id="video" style="display:none;width:100%;margin-top:10px;"></video>
+      <canvas id="canvas" style="display:none;"></canvas>
+      
       <div class="validation-row v-idle" id="luhnStatus">
         <div class="v-dot"></div><span>Enter card number to validate</span>
       </div>
