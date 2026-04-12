@@ -178,6 +178,59 @@
     .api-status.online  .api-dot { background: var(--green); }
     .api-status.offline { border-color: var(--red-border); color: var(--red); }
     .api-status.offline .api-dot { background: var(--red); }
+
+    /* ── Camera scanner styles ── */
+    #cameraWrap {
+      display: none;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      position: relative;
+      background: #000;
+    }
+    #cameraWrap.active { display: block; }
+    #video { width: 100%; display: block; max-height: 220px; object-fit: cover; }
+    #scanOverlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    #scanFrame {
+      width: 82%; height: 60%; border: 2px solid rgba(255,255,255,0.7);
+      border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+    }
+    #scanLine {
+      position: absolute; left: 9%; width: 82%; height: 2px;
+      background: linear-gradient(90deg, transparent, #4ade80, transparent);
+      animation: scanMove 2s ease-in-out infinite;
+      top: 20%;
+    }
+    @keyframes scanMove {
+      0%   { top: 20%; }
+      50%  { top: 68%; }
+      100% { top: 20%; }
+    }
+    #canvas { display: none; }
+    #cameraToolbar {
+      display: flex; gap: 8px; padding: 8px;
+      background: rgba(0,0,0,0.6);
+    }
+    .cam-btn {
+      flex: 1; height: 36px; border: none; border-radius: 6px;
+      font-family: var(--font); font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .cam-btn:hover { opacity: 0.85; }
+    .cam-btn.capture { background: #fff; color: #111; }
+    .cam-btn.close   { background: rgba(255,255,255,0.15); color: #fff; }
+    #ocrStatus {
+      font-size: 12px; color: var(--text-tertiary);
+      margin-top: 6px; min-height: 16px; text-align: center;
+    }
+    #ocrStatus.processing { color: #d97706; }
+    #ocrStatus.success    { color: var(--green); }
+    #ocrStatus.fail       { color: var(--red); }
   </style>
 </head>
 <body>
@@ -220,7 +273,7 @@
   <div id="step1" class="card-panel">
     <div class="panel-label">Step 1 of 3</div>
     <div class="panel-title">Card Validation</div>
-    <div class="panel-desc">Enter your card number. We run a Luhn algorithm check via the API before proceeding.</div>
+    <div class="panel-desc">Enter your card number or scan with your camera. We run a Luhn algorithm check before proceeding.</div>
     <div class="error-banner" id="err1">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
       <span id="err1Text">Could not validate card.</span>
@@ -238,13 +291,26 @@
           autocomplete="cc-number" oninput="handleCardInput(this)"/>
         <div class="card-type-badge" id="cardTypeBadge"></div>
       </div>
-      <button type="button" class="btn-secondary" onclick="startCamera(event)">
-        Scan Card 📷
+
+      <!-- Camera scanner -->
+      <button type="button" class="btn-secondary" id="scanBtn" onclick="startCamera()">
+        📷 Scan Card
       </button>
 
-      <video id="video" style="display:none;width:100%;margin-top:10px;"></video>
-      <canvas id="canvas" style="display:none;"></canvas>
-      
+      <div id="cameraWrap">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="scanOverlay">
+          <div id="scanFrame"></div>
+          <div id="scanLine"></div>
+        </div>
+        <canvas id="canvas"></canvas>
+        <div id="cameraToolbar">
+          <button class="cam-btn capture" onclick="captureAndOCR()">📸 Capture &amp; Read</button>
+          <button class="cam-btn close"   onclick="stopCamera()">✕ Close</button>
+        </div>
+      </div>
+      <div id="ocrStatus"></div>
+
       <div class="validation-row v-idle" id="luhnStatus">
         <div class="v-dot"></div><span>Enter card number to validate</span>
       </div>
@@ -322,9 +388,11 @@
 
 </div>
 <script>
-const API = 'https://fraud-detection-api-ng8a.onrender.com';
+  const API = 'https://fraud-detection-api-ng8a.onrender.com';
   let cardNumber = '';
+  let cameraStream = null;
 
+  /* ── API Health ── */
   async function checkAPIHealth() {
     try {
       const res = await fetch(`${API}/`, { signal: AbortSignal.timeout(4000) });
@@ -336,22 +404,151 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     const el  = document.getElementById('apiStatus');
     const txt = document.getElementById('apiStatusText');
     el.className    = 'api-status ' + (online ? 'online' : 'offline');
-    txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend deployment'; }
+    txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend deployment';
+  }
 
   checkAPIHealth();
 
-  function setBtn2Loading() {
-    const btn = document.getElementById('btn2');
-    btn.disabled = true;
-    btn.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  /* ── Camera Scanner ── */
+  async function startCamera() {
+    const wrap = document.getElementById('cameraWrap');
+    const video = document.getElementById('video');
+    const ocrStatus = document.getElementById('ocrStatus');
+    const scanBtn = document.getElementById('scanBtn');
+
+    // If already open, close it
+    if (wrap.classList.contains('active')) {
+      stopCamera();
+      return;
+    }
+
+    ocrStatus.textContent = '';
+    ocrStatus.className = '';
+
+    try {
+      // Prefer rear camera on mobile devices
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = cameraStream;
+
+      // Wait for video to be ready before showing
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = reject;
+        setTimeout(reject, 5000); // timeout safety
+      });
+
+      await video.play();
+      wrap.classList.add('active');
+      scanBtn.textContent = '✕ Close Camera';
+
+    } catch (err) {
+      let msg = 'Camera access denied.';
+      if (err.name === 'NotFoundError')     msg = 'No camera found on this device.';
+      if (err.name === 'NotAllowedError')   msg = 'Camera permission denied. Please allow camera access.';
+      if (err.name === 'NotReadableError')  msg = 'Camera is in use by another app.';
+      if (err.name === 'OverconstrainedError') {
+        // Retry without facingMode constraint
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = cameraStream;
+          await new Promise(r => { video.onloadedmetadata = r; });
+          await video.play();
+          wrap.classList.add('active');
+          scanBtn.textContent = '✕ Close Camera';
+          return;
+        } catch (e2) {
+          msg = 'Could not access camera.';
+        }
+      }
+      ocrStatus.textContent = msg;
+      ocrStatus.className   = 'fail';
+    }
   }
 
-  function resetBtn2() {
-    const btn = document.getElementById('btn2');
-    btn.disabled = false;
-    btn.innerHTML = 'Analyze Transaction <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+    const video = document.getElementById('video');
+    video.srcObject = null;
+    document.getElementById('cameraWrap').classList.remove('active');
+    document.getElementById('scanBtn').textContent = '📷 Scan Card';
   }
 
+  async function captureAndOCR() {
+    const video  = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ocrStatus = document.getElementById('ocrStatus');
+
+    if (!cameraStream || video.readyState < 2) {
+      ocrStatus.textContent = 'Camera not ready. Try again.';
+      ocrStatus.className   = 'fail';
+      return;
+    }
+
+    // Draw current frame onto hidden canvas
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 360;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Pre-process: grayscale + contrast boost for better OCR
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+      const contrast = Math.min(255, Math.max(0, (gray - 128) * 1.8 + 128));
+      d[i] = d[i+1] = d[i+2] = contrast;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    ocrStatus.textContent = '🔍 Reading card number…';
+    ocrStatus.className   = 'processing';
+
+    try {
+      const result = await Tesseract.recognize(canvas, 'eng', {
+        tessedit_char_whitelist: '0123456789 ',
+        tessedit_pageseg_mode: '6'
+      });
+
+      const raw = result.data.text;
+
+      // Extract sequences of digits that look like card numbers (13–19 digits total)
+      const digitGroups = raw.replace(/\D+/g, ' ').trim().split(/\s+/).filter(Boolean);
+      const joined      = digitGroups.join('');
+
+      // Try to find a 13-19 digit sequence
+      const match = joined.match(/\d{13,19}/);
+
+      if (match) {
+        const digits    = match[0].slice(0, 16);
+        const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
+        const input     = document.getElementById('cardInput');
+        input.value     = formatted;
+        handleCardInput(input);
+        ocrStatus.textContent = '✓ Card number detected — confirm below';
+        ocrStatus.className   = 'success';
+        stopCamera();
+      } else {
+        ocrStatus.textContent = 'Could not find a card number. Try again with better lighting.';
+        ocrStatus.className   = 'fail';
+      }
+    } catch (err) {
+      ocrStatus.textContent = 'OCR failed: ' + (err.message || 'Unknown error');
+      ocrStatus.className   = 'fail';
+    }
+  }
+
+  /* ── Card Input & Luhn ── */
   function handleCardInput(el) {
     const raw = el.value.replace(/\D/g,'').slice(0,16);
     el.value  = raw.replace(/(.{4})/g,'$1 ').trim();
@@ -399,6 +596,7 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     return '•••• •••• •••• ' + raw.replace(/\s/g,'').slice(-4);
   }
 
+  /* ── Step 1: Validate ── */
   async function validateCard() {
     const btn       = document.getElementById('btn1');
     const errBanner = document.getElementById('err1');
@@ -416,6 +614,7 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
       const data = await res.json();
       if (data.valid) {
         document.getElementById('maskedDisplay').textContent = maskCard(cardNumber);
+        stopCamera();
         setStep(2);
       } else {
         document.getElementById('err1Text').textContent = 'Card invalid according to server.';
@@ -428,6 +627,19 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     }
     btn.disabled = false;
     btn.innerHTML = 'Validate Card <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+  }
+
+  /* ── Step 2: Transaction ── */
+  function setBtn2Loading() {
+    const btn = document.getElementById('btn2');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  }
+
+  function resetBtn2() {
+    const btn = document.getElementById('btn2');
+    btn.disabled = false;
+    btn.innerHTML = 'Analyze Transaction <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   }
 
   function updateRiskPreview() {
@@ -472,6 +684,7 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     }
   }
 
+  /* ── Step 3: Result ── */
   function showResult(data, amt) {
     setStep(3);
     const isFraud    = data.fraud;
@@ -503,6 +716,7 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     `;
   }
 
+  /* ── Navigation ── */
   function goBackToStep1() {
     document.getElementById('err2').className = 'error-banner';
     resetBtn2();
@@ -510,6 +724,7 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
   }
 
   function resetAll() {
+    stopCamera();
     cardNumber = '';
     document.getElementById('cardInput').value         = '';
     document.getElementById('cardInput').className     = 'card-input';
@@ -526,6 +741,9 @@ const API = 'https://fraud-detection-api-ng8a.onrender.com';
     document.getElementById('riskLabel').style.color   = '';
     document.getElementById('err1').className          = 'error-banner';
     document.getElementById('err2').className          = 'error-banner';
+    document.getElementById('ocrStatus').textContent   = '';
+    document.getElementById('ocrStatus').className     = '';
+    document.getElementById('scanBtn').textContent     = '📷 Scan Card';
     resetBtn2();
     setStep(1);
     checkAPIHealth();
