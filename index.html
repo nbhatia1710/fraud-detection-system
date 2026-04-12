@@ -435,19 +435,37 @@
 
   /* ── Parse OCR text and push into card input ── */
   function injectOCRResult(text) {
-    const digits = text.replace(/\D+/g, '').slice(0, 16);
-    const match  = digits.match(/\d{13,16}/);
-    if (match) {
-      const formatted = match[0].replace(/(.{4})/g, '$1 ').trim();
+  // Extract ALL digit-only sequences from OCR text
+  const allSequences = text.match(/\d[\d\s]{10,}\d/g) || [];
+
+  // Clean each to pure digits and deduplicate
+  const candidates = [...new Set(
+    allSequences.map(s => s.replace(/\s/g, ''))
+  )];
+
+  // Sort by closeness to 16 digits (card number length)
+  // Sequences of 13-19 digits only, sorted: 16 first, then 15, 17, 14, etc.
+  const cardCandidates = candidates
+    .filter(s => s.length >= 13 && s.length <= 19)
+    .sort((a, b) => Math.abs(a.length - 16) - Math.abs(b.length - 16));
+
+  // Try each candidate — accept first one that passes Luhn
+  for (const digits of cardCandidates) {
+    const trimmed = digits.slice(0, 16);
+    if (luhnCheck(trimmed)) {
+      const formatted = trimmed.replace(/(.{4})/g, '$1 ').trim();
       const input = document.getElementById('cardInput');
       input.value = formatted;
       handleCardInput(input);
       setOcrMsg('✓ Card detected — confirm below', 'ok');
       closeCamera();
-    } else {
-      setOcrMsg('No card number found — try better lighting or enter manually', 'err');
+      return;
     }
   }
+
+  // No Luhn-valid sequence found
+  setOcrMsg('No valid card number found — try again or enter manually', 'err');
+}
 
   function setOcrMsg(text, type) {
     const el = document.getElementById('ocrMsg');
