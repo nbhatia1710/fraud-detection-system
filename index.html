@@ -6,7 +6,6 @@
   <title>SecureVerify — Fraud Detection</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -103,28 +102,20 @@
     .api-status.online  .api-dot { background: var(--green); }
     .api-status.offline { border-color: var(--red-border); color: var(--red); }
     .api-status.offline .api-dot { background: var(--red); }
-
-    /* ── Scanner UI ── */
-    .scan-section { margin-top: 10px; }
-
-    /* Hidden file input — triggered programmatically */
+    /* Scanner */
     #fileInput { display: none; }
-
-    /* Live camera section (desktop) */
+    #canvas { display: none; }
     #cameraSection { display: none; margin-top: 10px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); background: #000; }
     #video { width: 100%; display: block; max-height: 220px; object-fit: cover; }
     .cam-overlay { position: relative; }
-    .cam-frame { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-    .cam-frame-box { width: 80%; height: 55%; border: 2px solid rgba(255,255,255,0.75); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
+    .cam-frame-abs { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cam-frame-box { width: 80%; height: 55%; border: 2px solid rgba(255,255,255,0.8); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45); }
     .cam-line { position: absolute; left: 10%; width: 80%; height: 2px; background: linear-gradient(90deg,transparent,#4ade80,transparent); animation: scanLine 2s ease-in-out infinite; top: 22%; }
     @keyframes scanLine { 0%,100%{top:22%} 50%{top:66%} }
-    #canvas { display: none; }
     .cam-toolbar { display: flex; gap: 8px; padding: 8px; background: rgba(0,0,0,0.65); }
     .cam-btn { flex: 1; height: 36px; border: none; border-radius: 6px; font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; }
-    .cam-btn.capture { background: #fff; color: #111; }
+    .cam-btn.capture  { background: #fff; color: #111; }
     .cam-btn.close-cam { background: rgba(255,255,255,0.18); color: #fff; }
-
-    /* OCR status */
     #ocrMsg { font-size: 12px; text-align: center; margin-top: 8px; min-height: 18px; color: var(--text-tertiary); }
     #ocrMsg.ok   { color: var(--green); }
     #ocrMsg.err  { color: var(--red); }
@@ -192,36 +183,28 @@
         <div class="card-type-badge" id="cardTypeBadge"></div>
       </div>
 
-      <!-- ── Scanner section ── -->
-      <div class="scan-section">
-        <!-- 
-          MOBILE: input[type=file] with capture="environment" opens native camera directly.
-          DESKTOP: falls through to getUserMedia live camera.
-        -->
-        <input type="file" id="fileInput" accept="image/*" capture="environment">
+      <!-- hidden file input — mobile opens camera, desktop opens file picker -->
+      <input type="file" id="fileInput" accept="image/*" capture="environment">
+      <canvas id="canvas"></canvas>
 
-        <button type="button" class="btn-secondary" id="scanBtn" onclick="handleScanClick()">
-          📷 Scan Card
-        </button>
+      <button type="button" class="btn-secondary" id="scanBtn" onclick="handleScanClick()">
+        📷 Scan Card
+      </button>
 
-        <!-- Live camera (desktop only, shown when getUserMedia works) -->
-        <div id="cameraSection">
-          <div class="cam-overlay">
-            <video id="video" autoplay playsinline muted></video>
-            <div class="cam-frame">
-              <div class="cam-frame-box"></div>
-            </div>
-            <div class="cam-line"></div>
-          </div>
-          <canvas id="canvas"></canvas>
-          <div class="cam-toolbar">
-            <button class="cam-btn capture" onclick="captureFrame()">📸 Capture &amp; Read</button>
-            <button class="cam-btn close-cam" onclick="closeCamera()">✕ Close</button>
-          </div>
+      <!-- Desktop live camera -->
+      <div id="cameraSection">
+        <div class="cam-overlay">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="cam-frame-abs"><div class="cam-frame-box"></div></div>
+          <div class="cam-line"></div>
         </div>
-
-        <div id="ocrMsg"></div>
+        <div class="cam-toolbar">
+          <button class="cam-btn capture" onclick="captureFrame()">📸 Capture &amp; Read</button>
+          <button class="cam-btn close-cam" onclick="closeCamera()">✕ Close</button>
+        </div>
       </div>
+
+      <div id="ocrMsg"></div>
 
       <div class="validation-row v-idle" id="luhnStatus">
         <div class="v-dot"></div><span>Enter card number to validate</span>
@@ -300,40 +283,178 @@
   </div>
 
 </div>
-
 <script>
-  const API = 'https://fraud-detection-api-ng8a.onrender.com';
-  let cardNumber = '';
-  let cameraStream = null;
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  const BACKEND_API  = 'https://fraud-detection-api-ng8a.onrender.com';
+  const GOOGLE_VISION_KEY = 'AIzaSyD1wQmZd5G_inqtSZiG0Sw91enNHkDRkBc';
+  const VISION_URL   = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_KEY}`;
 
-  /* ── API health ── */
+  let cardNumber   = '';
+  let cameraStream = null;
+  const isMobile   = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  /* ── Backend health check ── */
   async function checkAPIHealth() {
     try {
-      const res = await fetch(`${API}/`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`${BACKEND_API}/`, { signal: AbortSignal.timeout(4000) });
       setAPIStatus(res.ok);
     } catch { setAPIStatus(false); }
   }
   function setAPIStatus(online) {
-    const el = document.getElementById('apiStatus');
+    const el  = document.getElementById('apiStatus');
     const txt = document.getElementById('apiStatusText');
-    el.className = 'api-status ' + (online ? 'online' : 'offline');
+    el.className    = 'api-status ' + (online ? 'online' : 'offline');
     txt.textContent = online ? 'API connected · Live Server' : 'API offline · Check backend';
   }
   checkAPIHealth();
 
-  /* ────────────────────────────────────────
-     SCAN BUTTON — smart routing
-     Mobile  → triggers file input (native camera picker)
-     Desktop → tries getUserMedia live camera
-  ──────────────────────────────────────── */
+  /* ────────────────────────────────────────────
+     GOOGLE CLOUD VISION — card number extraction
+  ──────────────────────────────────────────── */
+  async function readCardWithVision(imageBase64) {
+    const body = {
+      requests: [{
+        image: { content: imageBase64 },
+        features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+      }]
+    };
+
+    const res = await fetch(VISION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Vision API error');
+    }
+
+    const data = await res.json();
+
+    // fullTextAnnotation gives us all text found in the image
+    const fullText = data.responses?.[0]?.fullTextAnnotation?.text || '';
+    const altText  = data.responses?.[0]?.textAnnotations?.[0]?.description || '';
+    const rawText  = fullText || altText;
+
+    if (!rawText) throw new Error('No text detected in image');
+
+    return rawText;
+  }
+
+  /* ── Convert file/blob to base64 ── */
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ── Convert file to HTMLImageElement ── */
+  function fileToImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  /* ── Main OCR flow ── */
+  async function runOCROnFile(file) {
+    setOcrMsg('🔍 Reading card with Google Vision…', 'busy');
+    try {
+      const base64 = await fileToBase64(file);
+      const rawText = await readCardWithVision(base64);
+      injectOCRResult(rawText);
+    } catch (err) {
+      console.error('Vision error:', err);
+      setOcrMsg('Scan failed: ' + (err.message || 'try again'), 'err');
+    }
+  }
+
+  /* ── Parse Vision text → find card number ── */
+  function injectOCRResult(text) {
+    console.log('Vision raw text:', text); // helpful for debugging
+
+    // Remove all non-digit characters except spaces and newlines (keep layout)
+    // Then find all groups of digits separated by spaces or newlines
+    const lines = text.split(/[\n\r]+/);
+
+    // Collect all digit sequences from every line
+    let allDigitSeqs = [];
+    for (const line of lines) {
+      // Get all digit groups in this line
+      const groups = line.match(/\d+/g) || [];
+      // Join groups if they look like a split card number (4-4-4-4 pattern)
+      const joined = groups.join('');
+      if (joined.length >= 13 && joined.length <= 19) {
+        allDigitSeqs.push(joined);
+      }
+      // Also add individual groups in case OCR put them on separate lines
+      for (const g of groups) {
+        if (g.length >= 4) allDigitSeqs.push(g);
+      }
+    }
+
+    // Also try joining ALL digits in the entire text as a last resort
+    const allDigits = text.replace(/\D/g, '');
+
+    // Build candidate list: prefer sequences closest to 16 digits
+    const candidates = new Set();
+
+    // sliding window of 16 digits across entire digit string
+    for (let i = 0; i <= allDigits.length - 13; i++) {
+      for (let len = 13; len <= Math.min(19, allDigits.length - i); len++) {
+        candidates.add(allDigits.substring(i, i + len));
+      }
+    }
+
+    // Add line-based sequences too
+    allDigitSeqs.forEach(s => candidates.add(s));
+
+    // Sort: 16-digit sequences first, then by closeness to 16
+    const sorted = [...candidates]
+      .filter(s => s.length >= 13 && s.length <= 19)
+      .sort((a, b) => Math.abs(a.length - 16) - Math.abs(b.length - 16));
+
+    // Try each — accept the first one that passes Luhn
+    for (const seq of sorted) {
+      const digits = seq.slice(0, 16);
+      if (luhnCheck(digits)) {
+        const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
+        const input = document.getElementById('cardInput');
+        input.value = formatted;
+        handleCardInput(input);
+        setOcrMsg('✓ Card number detected — please confirm', 'ok');
+        closeCamera();
+        return;
+      }
+    }
+
+    // No Luhn-valid number found — show the most likely candidate anyway
+    // so the user can manually correct just a digit or two
+    const bestGuess = sorted[0] || allDigits.slice(0, 16);
+    if (bestGuess && bestGuess.length >= 13) {
+      const digits    = bestGuess.slice(0, 16);
+      const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
+      const input     = document.getElementById('cardInput');
+      input.value     = formatted;
+      handleCardInput(input);
+      setOcrMsg('⚠ Please verify — number may need a small correction', 'busy');
+      closeCamera();
+    } else {
+      setOcrMsg('Could not find card number — enter manually', 'err');
+    }
+  }
+
+  /* ── Scan button: mobile → file input, desktop → live camera ── */
   function handleScanClick() {
     if (isMobile) {
-      // On mobile, the file input with capture="environment" opens the camera directly
-      // No JS camera API needed — just trigger the input click
       document.getElementById('fileInput').click();
     } else {
-      // Desktop: toggle live camera
       const section = document.getElementById('cameraSection');
       if (section.style.display === 'block') {
         closeCamera();
@@ -343,158 +464,65 @@
     }
   }
 
-  /* ── File input handler (used by mobile) ── */
+  /* ── File input handler ── */
   document.getElementById('fileInput').addEventListener('change', function(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    setOcrMsg('🔍 Reading card number…', 'busy');
     runOCROnFile(file);
-    // Reset so same file can be picked again if needed
     this.value = '';
   });
 
-  async function runOCROnFile(file) {
-  setOcrMsg('🔍 Reading card…', 'busy');
-  try {
-    const img = await fileToImage(file);
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // Crop to middle strip only (where card number lives)
-    const cropY = Math.floor(img.height * 0.38);
-    const cropH = Math.floor(img.height * 0.35);
-    canvas.width  = img.width;
-    canvas.height = cropH;
-    ctx.drawImage(img, 0, cropY, img.width, cropH, 0, 0, img.width, cropH);
-
-    // Scale up 3x — Tesseract is much more accurate on larger images
-    const scaled = document.createElement('canvas');
-    scaled.width  = canvas.width  * 3;
-    scaled.height = canvas.height * 3;
-    const sCtx = scaled.getContext('2d');
-    sCtx.imageSmoothingEnabled = false;
-    sCtx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-
-    // Hard binary threshold (black or white only)
-    const imgData = sCtx.getImageData(0, 0, scaled.width, scaled.height);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-      const val  = gray > 128 ? 255 : 0;
-      d[i] = d[i+1] = d[i+2] = val;
+  /* ── Desktop live camera ── */
+  async function openLiveCamera() {
+    const section = document.getElementById('cameraSection');
+    const video   = document.getElementById('video');
+    setOcrMsg('', '');
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+      });
+      video.srcObject = cameraStream;
+      await video.play();
+      section.style.display = 'block';
+      document.getElementById('scanBtn').textContent = '✕ Close Camera';
+    } catch {
+      // Fallback: open file picker
+      const fi = document.getElementById('fileInput');
+      fi.removeAttribute('capture');
+      fi.click();
     }
-    sCtx.putImageData(imgData, 0, 0);
-
-    const result = await Tesseract.recognize(scaled, 'eng', {
-      tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode: '7',
-      tessedit_ocr_engine_mode: '1'
-    });
-
-    injectOCRResult(result.data.text);
-  } catch (err) {
-    setOcrMsg('Failed — enter number manually', 'err');
-  }
-}
-
-function fileToImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-/* ── Desktop live camera ── */
-async function openLiveCamera() {
-  const section = document.getElementById('cameraSection');
-  const video   = document.getElementById('video');
-  setOcrMsg('', '');
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
-    });
-    video.srcObject = cameraStream;
-    await video.play();
-    section.style.display = 'block';
-    document.getElementById('scanBtn').textContent = '✕ Close Camera';
-  } catch (err) {
-    setOcrMsg('Camera blocked — choose an image file instead', 'err');
-    const fi = document.getElementById('fileInput');
-    fi.removeAttribute('capture');
-    fi.click();
-  }
-}
-
-function closeCamera() {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = null;
-  }
-  const video = document.getElementById('video');
-  video.srcObject = null;
-  document.getElementById('cameraSection').style.display = 'none';
-  document.getElementById('scanBtn').textContent = '📷 Scan Card';
-}
-
-async function captureFrame() {
-  const video  = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  if (!cameraStream || video.readyState < 2) {
-    setOcrMsg('Camera not ready — try again', 'err');
-    return;
   }
 
-  // Capture full frame first
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 360;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  function closeCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+    const video = document.getElementById('video');
+    if (video) video.srcObject = null;
+    document.getElementById('cameraSection').style.display = 'none';
+    document.getElementById('scanBtn').textContent = '📷 Scan Card';
+  }
 
-  // Convert to a blob/file so we can reuse runOCROnFile with all its preprocessing
-  canvas.toBlob(async (blob) => {
-    setOcrMsg('🔍 Reading card number…', 'busy');
-    await runOCROnFile(blob);
-  }, 'image/jpeg', 0.95);
-}
-
-function injectOCRResult(text) {
-  // Only look for sequences of 13-19 digits (ignores 4-digit expiry, 3-digit CVV)
-  const sequences = text.replace(/\s+/g, '').match(/\d{13,19}/g) || [];
-
-  // Try each — accept first that passes Luhn
-  for (const seq of sequences) {
-    const digits = seq.slice(0, 16);
-    if (luhnCheck(digits)) {
-      const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
-      const input = document.getElementById('cardInput');
-      input.value = formatted;
-      handleCardInput(input);
-      setOcrMsg('✓ Card detected — confirm below', 'ok');
-      closeCamera();
+  /* ── Capture live camera frame → Vision API ── */
+  function captureFrame() {
+    const video  = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    if (!cameraStream || video.readyState < 2) {
+      setOcrMsg('Camera not ready — try again', 'err');
       return;
     }
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 360;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    setOcrMsg('🔍 Reading card with Google Vision…', 'busy');
+    canvas.toBlob(blob => runOCROnFile(blob), 'image/jpeg', 0.95);
   }
-
-  // No Luhn match — show longest sequence so user can correct manually
-  const longest = text.replace(/\D/g, '');
-  if (longest.length >= 13) {
-    const digits = longest.slice(0, 16);
-    const input = document.getElementById('cardInput');
-    input.value = digits.replace(/(.{4})/g, '$1 ').trim();
-    handleCardInput(input);
-    setOcrMsg('⚠ Please verify number — could not fully confirm', 'busy');
-  } else {
-    setOcrMsg('Could not read — try better lighting or enter manually', 'err');
-  }
-}
 
   function setOcrMsg(text, type) {
     const el = document.getElementById('ocrMsg');
     el.textContent = text;
-    el.className = type;
+    el.className   = type;
   }
 
   /* ── Card input & Luhn ── */
@@ -545,15 +573,15 @@ function injectOCRResult(text) {
     return '•••• •••• •••• ' + raw.replace(/\s/g,'').slice(-4);
   }
 
-  /* ── Step 1: Validate ── */
+  /* ── Step 1: Validate with backend ── */
   async function validateCard() {
-    const btn = document.getElementById('btn1');
+    const btn       = document.getElementById('btn1');
     const errBanner = document.getElementById('err1');
     errBanner.className = 'error-banner';
     btn.disabled = true;
     btn.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
     try {
-      const res = await fetch(`${API}/validate`, {
+      const res = await fetch(`${BACKEND_API}/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ card_number: cardNumber.replace(/\s/g,'') }),
@@ -578,7 +606,7 @@ function injectOCRResult(text) {
     btn.innerHTML = 'Validate Card <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   }
 
-  /* ── Step 2 ── */
+  /* ── Step 2: Analyze ── */
   function setBtn2Loading() {
     const btn = document.getElementById('btn2');
     btn.disabled = true;
@@ -590,26 +618,26 @@ function injectOCRResult(text) {
     btn.innerHTML = 'Analyze Transaction <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
   }
   function updateRiskPreview() {
-    const val = parseFloat(document.getElementById('amountInput').value) || 0;
-    const fill = document.getElementById('riskFill');
+    const val   = parseFloat(document.getElementById('amountInput').value) || 0;
+    const fill  = document.getElementById('riskFill');
     const label = document.getElementById('riskLabel');
     let pct, color, text;
     if      (val === 0)  { pct = 0;  color = '#15803d'; text = '—'; }
-    else if (val < 500)  { pct = 10 + (val/500)*15;           color = '#15803d'; text = 'Low'; }
-    else if (val < 2000) { pct = 25 + ((val-500)/1500)*30;    color = '#d97706'; text = 'Medium'; }
-    else if (val < 5000) { pct = 55 + ((val-2000)/3000)*25;   color = '#ea580c'; text = 'High'; }
-    else                 { pct = Math.min(80+((val-5000)/5000)*20,98); color = '#dc2626'; text = 'Critical'; }
+    else if (val < 500)  { pct = 10 + (val/500)*15;                      color = '#15803d'; text = 'Low'; }
+    else if (val < 2000) { pct = 25 + ((val-500)/1500)*30;               color = '#d97706'; text = 'Medium'; }
+    else if (val < 5000) { pct = 55 + ((val-2000)/3000)*25;              color = '#ea580c'; text = 'High'; }
+    else                 { pct = Math.min(80+((val-5000)/5000)*20, 98);  color = '#dc2626'; text = 'Critical'; }
     fill.style.width = pct + '%'; fill.style.background = color;
     label.textContent = text; label.style.color = color;
   }
   async function analyzeTransaction() {
-    const amt = parseFloat(document.getElementById('amountInput').value);
+    const amt       = parseFloat(document.getElementById('amountInput').value);
     const errBanner = document.getElementById('err2');
     errBanner.className = 'error-banner';
     if (!amt || amt <= 0) { document.getElementById('amountInput').style.borderColor = '#dc2626'; return; }
     setBtn2Loading();
     try {
-      const res = await fetch(`${API}/predict`, {
+      const res = await fetch(`${BACKEND_API}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: amt }),
@@ -620,14 +648,14 @@ function injectOCRResult(text) {
       resetBtn2();
       showResult(data, amt);
     } catch {
-      document.getElementById('err2Text').textContent = 'Cannot reach API. Make sure Flask is running on port 5000.';
+      document.getElementById('err2Text').textContent = 'Cannot reach API. Make sure Flask is running.';
       errBanner.className = 'error-banner show';
       setAPIStatus(false);
       resetBtn2();
     }
   }
 
-  /* ── Step 3 ── */
+  /* ── Step 3: Show result ── */
   function showResult(data, amt) {
     setStep(3);
     const isFraud    = data.fraud;
@@ -647,7 +675,7 @@ function injectOCRResult(text) {
     } else {
       icon.innerHTML    = '<path d="M4 10l4 4 8-8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
       title.textContent = 'Transaction Appears Safe';
-      desc.textContent  = 'No suspicious patterns detected. The ML model has cleared this transaction based on amount and behavioural analysis.';
+      desc.textContent  = 'No suspicious patterns detected. The ML model cleared this transaction based on amount and behavioural analysis.';
     }
     meta.innerHTML = `
       <div><div class="meta-key">Amount</div><div class="meta-val">&#8377;${amt.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
